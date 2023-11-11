@@ -1,5 +1,13 @@
 from __future__ import annotations
+from enum import Enum
 import numpy as np
+
+
+class CellType(Enum):
+    NO_FUEL = 1
+    FUEL = 2
+    BURNING = 3
+    BURNT = 4
 
 
 class CellProbabilities:
@@ -41,7 +49,7 @@ class Cell:
     probabilities: CellProbabilities
 
     def __init__(self, cell_probabilities: CellProbabilities):
-        self.probabilities(cell_probabilities)
+        self.probabilities = cell_probabilities
 
     @classmethod
     def from_values(
