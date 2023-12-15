@@ -202,6 +202,23 @@ class MatrixSimulationData:
 
     def __str__(self) -> str:
         return f"Matrix: \n{self.final_state_matrix}\nBurn Time: {self.burn_time}"
+    
+def get_average_final_matrix(input_data: list[MatrixSimulationData]) -> np.ndarray:
+    if len(input_data) == 0:
+        raise Exception("Error: No data found in list.")
+    raise NotImplementedError()
+    
+def get_final_matrix_heatmap(input_data: list[MatrixSimulationData]) -> np.ndarray:
+    if len(input_data) == 0:
+        raise Exception("Error: No data found in list.")
+    heatmap = np.zeros_like(input_data[0].final_state_matrix, dtype=float)
+    for data_entry in input_data:
+        for i in range(data_entry.final_state_matrix.shape[1]):
+            for j in range(data_entry.final_state_matrix.shape[0]):
+                if data_entry.final_state_matrix[i][j] == 4:
+                    heatmap[i][j] += 1.0
+    heatmap /= len(input_data)
+    return heatmap
 
 
 def main():
@@ -212,17 +229,11 @@ def main():
         twos_matrix, half_matrix, ones_matrix, ones_matrix, ones_matrix, ones_matrix, 1
     )
 
-    # start = time.time()
-    # data = cell_matrix.run_simulations(1000)
-    # i = 0
-    # for item in data:
-    #     print(f"Simulation number: {i}")
-    #     print(item)
-    #     i += 1
-    # end = time.time()
-    # print(end - start)
-
-    cell_matrix.run_single_simulation(0, 0)
+    start = time.time()
+    data = cell_matrix.run_simulations(1000)
+    print(get_final_matrix_heatmap(data))
+    end = time.time()
+    print(end - start)
 
 
 if __name__ == "__main__":
