@@ -60,12 +60,14 @@ class CellProbabilities:
 
 class Cell:
     probabilities: CellProbabilities
+    timer: int
 
     def __init__(self, cell_probabilities: CellProbabilities):
         """
         Constructs a cell with a CellProbabilities object as an attribute.
         """
         self.probabilities = cell_probabilities
+        self.timer = 1
 
     @classmethod
     def from_values(
@@ -77,7 +79,7 @@ class Cell:
         """
         return Cell(CellProbabilities(p_veg, p_den, p_wind, p_slope, p_h))
 
-    def apply_rules(self, neighbors: list[Cell]):
+    def apply_rules(self, neighbors: list[Cell], time_steps: int):
         """
         This method warns that Cell subclass objects must have their own implementation 
         of apply_rules.
@@ -98,7 +100,7 @@ class NoFuelState(Cell):
         """
         super().__init__(cell_probabilities)
 
-    def apply_rules(self, neighbors: list[Cell]):
+    def apply_rules(self, neighbors: list[Cell], time_steps: int):
         """
         Apply rules for the NoFuelState: A NoFuelState will stay a NoFuelState because 
         it cannot catch on fire.
@@ -113,7 +115,7 @@ class FuelState(Cell):
         """
         super().__init__(cell_probabilities)
 
-    def apply_rules(self, neighbors: list[Cell]):
+    def apply_rules(self, neighbors: list[Cell], time_steps: int):
         """
         Apply rules for the FuelState: For every neighbor, if that neighbor is burning,
         run the p_burn simulation to see if the Cell will catch on fire. If it does, 
@@ -133,12 +135,16 @@ class BurningState(Cell):
         """
         super().__init__(cell_probabilities)
 
-    def apply_rules(self, neighbors: list[Cell]):
+    def apply_rules(self, neighbors: list[Cell], time_steps: int):
         """
         Apply rules for the BurningState: BurningStates immediately become burnt on the 
         next time step.
         """
-        return BurntState(self.probabilities)
+        if self.timer < time_steps:
+            self.timer += 1
+            return self
+        else:
+            return BurntState(self.probabilities)
 
 
 class BurntState(Cell):
@@ -148,7 +154,7 @@ class BurntState(Cell):
         """
         super().__init__(cell_probabilities)
 
-    def apply_rules(self, neighbors: list[Cell]):
+    def apply_rules(self, neighbors: list[Cell], time_steps: int):
         """
         Apply rules for the BurntState: A BurntState will stay a BurntState because it 
         cannot catch on fire anymore.
