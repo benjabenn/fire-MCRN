@@ -237,19 +237,18 @@ def get_final_matrix_heatmap(input_data: list[MatrixSimulationData]) -> np.ndarr
 
 
 def main():
-    ones_matrix = np.ones((10, 10))
-    twos_matrix = np.ones((10, 10)) * 2
-    half_matrix = np.ones((10, 10)) * 0.1
+    ones_matrix = np.ones((50, 50))
+    twos_matrix = np.ones((50, 50)) * 2
+    half_matrix = np.ones((50, 50)) * 0.5
     cell_matrix = Matrix(
-        twos_matrix, half_matrix, ones_matrix, ones_matrix, ones_matrix, ones_matrix, 5
+        twos_matrix, half_matrix, ones_matrix, ones_matrix, ones_matrix, ones_matrix, 1
     )
 
     start = time.time()
-    data = cell_matrix.run_simulations(10000, 0, 0, True)
+    data = cell_matrix.run_simulations(100, 0, 0, True)
     print(get_final_matrix_heatmap(data))
     end = time.time()
     print(f"{end - start} seconds")
-    # cell_matrix.run_single_simulation_with_pauses(0, 0)
 
 
 if __name__ == "__main__":

@@ -10,3 +10,5 @@
     - "Average" matrix
     - Speed of fire line
     - Burn duration
+    - Burn region
+    - spread rate = burn region / burn time
