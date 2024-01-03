@@ -2,6 +2,7 @@ from __future__ import annotations
 import numpy as np
 from cell import *
 import time
+import os
 
 
 class Matrix:
@@ -149,13 +150,13 @@ class Matrix:
         return True
 
     def run_single_simulation(self, row, col) -> MatrixSimulationData:
-        self.render_emojis()
+        # self.render_emojis()
         self.spark(row, col)
-        self.render_emojis()
+        # self.render_emojis()
         burn_time = 0
         while not self.is_complete():
             self.update()
-            self.render_emojis()
+            # self.render_emojis()
             burn_time += 1
         return MatrixSimulationData(self.get_state_matrix(), burn_time)
 
@@ -190,6 +191,20 @@ class Matrix:
 
             self.cell_matrix = starting_state
         return final_states
+    
+    def run_single_simulation_with_pauses(self, row, col) -> MatrixSimulationData:
+        self.render_emojis()
+        input()
+        self.spark(row, col)
+        self.render_emojis()
+        input()
+        burn_time = 0
+        while not self.is_complete():
+            self.update()
+            self.render_emojis()
+            input()
+            burn_time += 1
+        return MatrixSimulationData(self.get_state_matrix(), burn_time)
 
 
 class MatrixSimulationData:
@@ -224,16 +239,17 @@ def get_final_matrix_heatmap(input_data: list[MatrixSimulationData]) -> np.ndarr
 def main():
     ones_matrix = np.ones((10, 10))
     twos_matrix = np.ones((10, 10)) * 2
-    half_matrix = np.ones((10, 10)) * 0.5
+    half_matrix = np.ones((10, 10)) * 0.1
     cell_matrix = Matrix(
-        twos_matrix, half_matrix, ones_matrix, ones_matrix, ones_matrix, ones_matrix, 1
+        twos_matrix, half_matrix, ones_matrix, ones_matrix, ones_matrix, ones_matrix, 5
     )
 
     start = time.time()
-    data = cell_matrix.run_simulations(1000)
+    data = cell_matrix.run_simulations(10000, 0, 0, True)
     print(get_final_matrix_heatmap(data))
     end = time.time()
-    print(end - start)
+    print(f"{end - start} seconds")
+    # cell_matrix.run_single_simulation_with_pauses(0, 0)
 
 
 if __name__ == "__main__":
