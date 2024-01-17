@@ -1,8 +1,13 @@
 from __future__ import annotations
+import datetime
+from functools import partial
+from matplotlib.animation import FuncAnimation
+from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 from cell import *
 import time
 import os
+import matplotlib.pyplot as plt
 
 
 class Matrix:
@@ -122,12 +127,36 @@ class Matrix:
                 if isinstance(self.cell_matrix[i][j], NoFuelState):
                     emoji_matrix[i][j] = "💧"
                 elif isinstance(self.cell_matrix[i][j], FuelState):
-                    emoji_matrix[i][j] = "🎄"
+                    emoji_matrix[i][j] = "🌳"
                 elif isinstance(self.cell_matrix[i][j], BurningState):
                     emoji_matrix[i][j] = "🔥"
                 elif isinstance(self.cell_matrix[i][j], BurntState):
                     emoji_matrix[i][j] = "🌑"
-        print(emoji_matrix)
+        print(f"{emoji_matrix}\n")
+
+    def run_single_simulation_pyplot(self, row, col, filename, allow_non_fuel_sparks=False):
+        # blue (1), green (2),  red (3),  black (4)
+        colors = [(0.3, 0.65, 1), (0, 0.7, 0.35),  (1, 0, 0),  (0, 0, 0),]
+        cmap_name = 'b_g_r_black'
+        fig = plt.figure()
+        cm = LinearSegmentedColormap.from_list(cmap_name, colors, N=4)
+
+        self.spark(row, col, allow_non_fuel_sparks)
+
+        def update_fig(i):
+            if not self.is_complete():
+                self.update()
+                plt.imshow(self.get_state_matrix(), interpolation='nearest',
+                           vmin=1, vmax=len(colors), cmap=cm)
+
+        anim = FuncAnimation(fig, update_fig, interval=200)
+        anim.save(filename)
+
+    def render_pyplot(self, plt, colors, cm):
+        plt.imshow(self.get_state_matrix(), interpolation='nearest',
+                   vmin=1, vmax=len(colors), cmap=cm)
+        plt.colorbar()
+        plt.show()
 
     def spark(self, row, col, allow_non_fuel_sparks=False):
         if (
@@ -149,19 +178,19 @@ class Matrix:
                     return False
         return True
 
-    def run_single_simulation(self, row, col) -> MatrixSimulationData:
-        # self.render_emojis()
-        self.spark(row, col)
-        # self.render_emojis()
+    def run_single_simulation(self, row, col, allow_non_fuel_sparks=False) -> MatrixSimulationData:
+        self.render_emojis()
+        self.spark(row, col, allow_non_fuel_sparks)
+        self.render_emojis()
         burn_time = 0
         while not self.is_complete():
             self.update()
-            # self.render_emojis()
+            self.render_emojis()
             burn_time += 1
         return MatrixSimulationData(self.get_state_matrix(), burn_time)
 
     def get_state_matrix(self) -> np.ndarray:
-        state_matrix = np.empty_like(self.cell_matrix)
+        state_matrix = np.empty_like(self.cell_matrix, dtype=int)
         for i in range(self.cell_matrix.shape[1]):
             for j in range(self.cell_matrix.shape[0]):
                 if isinstance(self.cell_matrix[i][j], NoFuelState):
@@ -178,7 +207,6 @@ class Matrix:
         self, num_of_simulations, row=0, col=0, random_spark_location=False
     ) -> list[MatrixSimulationData]:
         final_states: list[MatrixSimulationData] = []
-        
 
         for _ in range(num_of_simulations):
             starting_state = self.cell_matrix.copy()
@@ -187,11 +215,44 @@ class Matrix:
                 row = np.random.randint(0, self.cell_matrix.shape[1])
                 col = np.random.randint(0, self.cell_matrix.shape[0])
 
+                while not isinstance(self.get_cell(row, col), FuelState):
+                        row = np.random.randint(0, self.cell_matrix.shape[1])
+                        col = np.random.randint(0, self.cell_matrix.shape[0])
+
             final_states.append(self.run_single_simulation(row, col))
 
             self.cell_matrix = starting_state
         return final_states
-    
+
+    @classmethod
+    def run_simple_parameter_sweep(cls, num_of_simulations, start, stop, num_of_points, cell_type_grid, timesteps=0, time_steps_from_p_den=False, row=0, col=0, random_spark_location=False, allow_non_fuel_sparks=False):
+        dict_data: dict[float, list[MatrixSimulationData]] = {}
+
+        matrix = Matrix(cell_type_grid, np.ones_like(cell_type_grid), np.ones_like(cell_type_grid), np.ones_like(
+                cell_type_grid), np.ones_like(cell_type_grid), np.ones_like(cell_type_grid), timesteps, time_steps_from_p_den)
+
+        for i in np.linspace(start, stop, num_of_points):
+            for j in range(matrix.cell_matrix.shape[1]):
+                for k in range(matrix.cell_matrix.shape[0]):
+                    matrix.cell_matrix[j][k].probabilities.probability_vector[0] = i
+            
+            dict_data[i] = []
+            for _ in range(num_of_simulations):
+                starting_state = matrix.cell_matrix.copy()
+
+                if random_spark_location:
+                    row = np.random.randint(0, matrix.cell_matrix.shape[1])
+                    col = np.random.randint(0, matrix.cell_matrix.shape[0])
+
+                    while not isinstance(matrix.get_cell(row, col), FuelState):
+                        row = np.random.randint(0, matrix.cell_matrix.shape[1])
+                        col = np.random.randint(0, matrix.cell_matrix.shape[0])
+
+                dict_data[i].append(matrix.run_single_simulation(row, col, allow_non_fuel_sparks))
+
+                matrix.cell_matrix = starting_state
+        return dict_data
+
     def run_single_simulation_with_pauses(self, row, col) -> MatrixSimulationData:
         self.render_emojis()
         input()
@@ -210,19 +271,30 @@ class Matrix:
 class MatrixSimulationData:
     final_state_matrix: np.ndarray
     burn_time: int
+    burn_region: float
+    spread_rate: float
 
     def __init__(self, final_state_matrix: np.ndarray, burn_time: int) -> None:
         self.final_state_matrix = final_state_matrix
         self.burn_time = burn_time
+        self.burn_region = 0.0
+        for i in range(self.final_state_matrix.shape[1]):
+            for j in range(self.final_state_matrix.shape[0]):
+                if self.final_state_matrix[i][j] == 4:
+                    self.burn_region += 1.0
+        self.burn_region = self.burn_region / (self.final_state_matrix.shape[1] * self.final_state_matrix.shape[0])
+        self.spread_rate = self.burn_region / self.burn_time
 
     def __str__(self) -> str:
         return f"Matrix: \n{self.final_state_matrix}\nBurn Time: {self.burn_time}"
-    
+
+
 def get_average_final_matrix(input_data: list[MatrixSimulationData]) -> np.ndarray:
     if len(input_data) == 0:
         raise Exception("Error: No data found in list.")
     raise NotImplementedError()
-    
+
+
 def get_final_matrix_heatmap(input_data: list[MatrixSimulationData]) -> np.ndarray:
     if len(input_data) == 0:
         raise Exception("Error: No data found in list.")
@@ -237,18 +309,17 @@ def get_final_matrix_heatmap(input_data: list[MatrixSimulationData]) -> np.ndarr
 
 
 def main():
-    ones_matrix = np.ones((50, 50))
-    twos_matrix = np.ones((50, 50)) * 2
-    half_matrix = np.ones((50, 50)) * 0.5
+    matrix_size = (50, 50)
+    ones_matrix = np.ones(matrix_size)
+    state_matrix = np.loadtxt('SwanLake_InitialCondition.csv', delimiter=',')
+    half_matrix = np.ones(matrix_size) * 0.15
     cell_matrix = Matrix(
-        twos_matrix, half_matrix, ones_matrix, ones_matrix, ones_matrix, ones_matrix, 1
+        state_matrix, half_matrix, ones_matrix, ones_matrix, ones_matrix, ones_matrix, 3
     )
 
-    start = time.time()
-    data = cell_matrix.run_simulations(100, 0, 0, True)
-    print(get_final_matrix_heatmap(data))
-    end = time.time()
-    print(f"{end - start} seconds")
+    cell_matrix.run_single_simulation_pyplot(
+        17, 15, f"animation_{time.time()}.gif", True)
+
 
 
 if __name__ == "__main__":
